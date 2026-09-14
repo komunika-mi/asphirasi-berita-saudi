@@ -1,0 +1,62 @@
+name: Berita Saudi ASPHIRASI
+
+# Tiap putaran menulis paling banyak 3 DRAFT ke Sanity (jatah harian 20).
+# Tidak ada yang tayang otomatis: editor ASPHIRASI yang menekan Publish.
+#
+# Jadwal SENGAJA belum aktif. Draft wajib bersampul (foto utama wajib diisi
+# di Studio), dan jalur pembuat sampul z_image di server belum terbukti:
+# CLI Higgsfield hanya punya login lewat browser dengan token berumur pendek.
+# Aktifkan cron di bawah setelah putaran manual membuktikan sampul jadi.
+#
+# Menit 23, bukan 0: menit 0 menit tersibuk GitHub Actions dan event schedule
+# paling sering dijatuhkan di sana (terukur di repo The Signal, Agu 2026).
+# 23 UTC = 06.23 WIB, 0-15 UTC = 07.23-22.23 WIB.
+on:
+  # schedule:
+  #   - cron: "23 23,0-15 * * *"
+  workflow_dispatch:
+    inputs:
+      kering:
+        description: "Uji kering (tanpa menulis ke Sanity)"
+        type: boolean
+        default: true
+      maks:
+        description: "Maksimal artikel putaran ini"
+        default: "1"
+
+concurrency:
+  group: berita-saudi
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  putaran:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Uji pengaman
+        run: npm run uji
+
+      - name: Putaran
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          SANITY_API_WRITE_TOKEN: ${{ secrets.SANITY_API_WRITE_TOKEN }}
+          MENIT: "14"
+        run: |
+          ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ inputs.kering }}" = "true" ] && ARGS="--kering"
+            ARGS="$ARGS --maks ${{ inputs.maks }}"
+          fi
+          node src/jalankan.mjs $ARGS
