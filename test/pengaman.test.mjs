@@ -117,6 +117,18 @@ test('harga bertitik di sumber tidak menyumbang angka jam palsu', () => {
   assert.deepEqual(angkaTanpaDasar('Pukul 14.30 kapal tiba.', 'The ship arrived at 2:30 pm.'), []);
 });
 
+test('jam gaya Reuters "2313 GMT" dikenali', () => {
+  assert.deepEqual(angkaTanpaDasar('Brent naik pada pukul 23.13 GMT.', 'Brent rose to $107.51 per barrel as of 2313 GMT.'), []);
+});
+
+test('"diminta" di ringkasan ditolak, "disarankan" di isi tidak', () => {
+  const n = naskahDasar({ ringkasan: 'Kementerian Haji dan Umrah Arab Saudi mencatat 1,5 juta jemaah umrah, travel umrah diminta cermati dampaknya bagi jemaah.' });
+  assert.ok(periksaNaskah(n, SUMBER).alasan.some((a) => a.includes('"diminta"')));
+  const n2 = naskahDasar();
+  n2.body[9] = { t: 'p', x: n2.body[9].x + ' Penyelenggara disarankan memantau informasi resmi.' };
+  assert.equal(periksaNaskah(n2, SUMBER).lolos, true);
+});
+
 test('pesan angka tanpa dasar menyertakan potongan kalimat', () => {
   const n = naskahDasar();
   n.body[0] = { t: 'p', x: n.body[0].x + ' Harga naik 23 persen dalam sepekan.' };

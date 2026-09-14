@@ -5,7 +5,7 @@
 // Arab News kadang terbuka kadang tidak (terbukti 14 Sep 2026, dua jam
 // berselang). Keduanya TIDAK diakali. Judulnya diambil lewat Google News
 // sebagai "radar": menandai isu yang ramai diliput, bukan bahan tulisan.
-import { ambil, Diblokir, dekodeEntitas, tanpaTag, jumlahKata } from './util.mjs';
+import { ambil, Diblokir, dekodeEntitas, tanpaTag, tanpaLebarNol, jumlahKata } from './util.mjs';
 
 const JENDELA_JAM = 36;
 
@@ -170,7 +170,7 @@ export async function isiArtikel(k) {
     const d = dataNext(await ambil(k.url));
     const n = d.props?.pageProps?.newsDetails || {};
     // SPA menutup tiap berita dengan kode angka seperti "0048".
-    teks = String(n.content || '')
+    teks = tanpaLebarNol(String(n.content || ''))
       .replace(/\r/g, '')
       .split(/\n+/)
       .map((s) => s.trim())

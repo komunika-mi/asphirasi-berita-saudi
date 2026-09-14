@@ -59,6 +59,10 @@ export function nilaiSumber(teks) {
     nilai.push(jam, Number(m[2] ?? m[5]));
     if (/p/i.test(m[3] || m[6] || '') && jam < 12) nilai.push(jam + 12);
   }
+  // Gaya Reuters: "as of 2313 GMT".
+  for (const m of teks.matchAll(/(?<![\d.,])([01]\d|2[0-3])([0-5]\d)(?=\s*(?:GMT|UTC)\b)/g)) {
+    nilai.push(Number(m[1]), Number(m[2]));
+  }
   // Sumber TIDAK ikut diurai dengan format Indonesia: "86,000" akan terbaca
   // 86 dan meloloskan naskah yang menulis "86" padahal sumbernya 86 ribu.
   return nilai;
@@ -172,6 +176,11 @@ export function periksaNaskah(n, sumberTeks) {
   if (kata < 400 || kata > 1000) alasan.push(`panjang body ${kata} kata, harus 400-1000`);
 
   const semua = teksNaskah(n);
+  // Kata kerja pasif yang menyiratkan ada pihak yang memerintah. Di judul dan
+  // ringkasan ia terbaca sebagai fakta ("travel umrah diminta cermati"),
+  // padahal perintahnya tidak pernah ada (terjadi 14 Sep 2026).
+  const perintah = `${n.judul || ''} ${n.ringkasan || ''}`.match(/\b(?:diminta|diimbau|diinstruksikan|diwajibkan)\b/i);
+  if (perintah) alasan.push(`judul/ringkasan memakai "${perintah[0]}" tanpa pihak yang meminta; tulis "perlu mencermati" dan sejenisnya`);
   if (/[—–]/.test(semua)) alasan.push('memakai em-dash atau en-dash');
   if (/https?:\/\/|<[a-z/!]/i.test(semua)) alasan.push('memuat tautan atau tag HTML');
   if (/(?<!Presiden\s)\bPrabowo\b/.test(semua)) alasan.push('menyebut "Prabowo" tanpa "Presiden"');

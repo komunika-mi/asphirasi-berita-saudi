@@ -53,8 +53,13 @@ export function dekodeEntitas(s) {
     .replace(/&([a-z]+);/gi, (m, n) => ENTITAS[n.toLowerCase()] ?? m);
 }
 
+// Arab News (teks kantor berita) menyelipkan karakter lebar-nol di antara kata,
+// sehingga "video footage" tidak cocok dengan pencarian biasa dan pengaman
+// superlatif bisa gagal menemukan "highest".
+export const tanpaLebarNol = (s) => s.replace(/[​-‍⁠﻿]/g, '');
+
 export function tanpaTag(html) {
-  return dekodeEntitas(html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' '))
+  return tanpaLebarNol(dekodeEntitas(html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<[^>]+>/g, ' ')))
     .replace(/\s+/g, ' ')
     .trim();
 }
