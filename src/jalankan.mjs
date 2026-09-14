@@ -23,7 +23,14 @@ const MAKS_PUTARAN = Number(iMaks >= 0 ? arg[iMaks + 1] : process.env.MAKS_PER_P
 const MAKS_HARI = Number(process.env.MAKS_PER_HARI || 20);
 const BATAS_MS = Number(process.env.MENIT || 14) * 60e3;
 const MULAI = Date.now();
+// langsung: sampul dibuat di putaran ini (butuh CLI Higgsfield yang login).
+// laptop: draft ditulis tanpa sampul + pesanan; sampul-laptop.mjs yang membuatnya.
+const SAMPUL = process.env.SAMPUL || 'langsung';
 
+if (!['langsung', 'laptop'].includes(SAMPUL)) {
+  console.error(`SAMPUL harus "langsung" atau "laptop", bukan "${SAMPUL}"`);
+  process.exit(1);
+}
 if (TANPA_FOTO && !KERING) {
   console.error('--tanpa-foto hanya boleh bersama --kering: draft tanpa sampul tidak bisa di-Publish editor.');
   process.exit(1);
@@ -125,23 +132,29 @@ async function main() {
       fs.writeFileSync(path.join(FOLDER, `${slug}.json`), JSON.stringify({ kandidat: k, sudut: p.sudut, naskah, cek }, null, 2));
 
       let sampul = { buffer: null, laporan: ['dilewati (--tanpa-foto)'] };
-      if (!TANPA_FOTO) {
+      if (SAMPUL === 'laptop') {
+        sampul = { buffer: null, laporan: ['dipesan ke laptop'], model: 'menunggu laptop' };
+      } else if (!TANPA_FOTO) {
         sampul = await buatSampul(naskah.objek_foto, { folder: FOLDER, nama: slug, sidikLama: status.sidikFoto });
         if (!sampul.buffer) throw new Error(`semua percobaan sampul gagal: ${sampul.laporan.join('; ')}`);
         status.sidikFoto.push(sampul.sidik);
       }
 
       if (!KERING) {
-        const aset = await cms.unggahGambar(sampul.buffer, `${slug}.jpg`);
+        const draftId = `drafts.${cms.AWALAN_ID}${slug}`;
+        const aset = sampul.buffer ? await cms.unggahGambar(sampul.buffer, `${slug}.jpg`) : null;
         const kata = jumlahKata(naskah.body.map((b) => b.x).join(' '));
+        const pesanan = SAMPUL === 'laptop'
+          ? [cms.mutasiPesanSampul({ draftId, slug, judul: naskah.judul, objek: naskah.objek_foto })]
+          : [];
         await cms.buatDraft({
-          _id: `drafts.${cms.AWALAN_ID}${slug}`,
+          _id: draftId,
           _type: 'post',
           title: naskah.judul,
           slug: { _type: 'slug', current: slug },
           kind: 'berita',
           category: { _type: 'reference', _ref: 'cat.saudi' },
-          coverImage: { _type: 'image', asset: { _type: 'reference', _ref: aset }, alt: naskah.judul },
+          ...(aset ? { coverImage: { _type: 'image', asset: { _type: 'reference', _ref: aset }, alt: naskah.judul } } : {}),
           excerpt: naskah.ringkasan,
           body: keBlok(naskah.body),
           author: { _type: 'reference', _ref: 'author.redaksi' },
@@ -153,7 +166,7 @@ async function main() {
           featured: false,
           mostRead: false,
           views: 0,
-        });
+        }, pesanan);
         catat(k, 'dibuat', slug);
       }
       hasil.push({ k, slug, naskah, cek, sampul });

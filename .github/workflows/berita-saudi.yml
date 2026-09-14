@@ -3,17 +3,17 @@ name: Berita Saudi ASPHIRASI
 # Tiap putaran menulis paling banyak 3 DRAFT ke Sanity (jatah harian 20).
 # Tidak ada yang tayang otomatis: editor ASPHIRASI yang menekan Publish.
 #
-# Jadwal SENGAJA belum aktif. Draft wajib bersampul (foto utama wajib diisi
-# di Studio), dan jalur pembuat sampul z_image di server belum terbukti:
-# CLI Higgsfield hanya punya login lewat browser dengan token berumur pendek.
-# Aktifkan cron di bawah setelah putaran manual membuktikan sampul jadi.
+# Draft ditulis TANPA sampul. z_image hanya jalan lewat CLI Higgsfield yang
+# login di laptop (login lewat browser, token berumur pendek; API Higgsfield
+# Cloud tidak memuat z_image), jadi putaran ini meninggalkan pesanan sampul
+# yang dikerjakan Task Scheduler laptop "ASPHIRASI - Sampul berita Saudi".
 #
 # Menit 23, bukan 0: menit 0 menit tersibuk GitHub Actions dan event schedule
 # paling sering dijatuhkan di sana (terukur di repo The Signal, Agu 2026).
 # 23 UTC = 06.23 WIB, 0-15 UTC = 07.23-22.23 WIB.
 on:
-  # schedule:
-  #   - cron: "23 23,0-15 * * *"
+  schedule:
+    - cron: "23 23,0-15 * * *"
   workflow_dispatch:
     inputs:
       kering:
@@ -52,6 +52,7 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SANITY_API_WRITE_TOKEN: ${{ secrets.SANITY_API_WRITE_TOKEN }}
+          SAMPUL: laptop
           MENIT: "14"
         run: |
           ARGS=""
