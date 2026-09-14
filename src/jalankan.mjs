@@ -50,6 +50,10 @@ function tanggalTeks(iso) {
 
 const normalJudul = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+// Kegagalan karena ISI (sumber tipis, naskah ditolak pemeriksa) adalah kerja
+// normal pengaman, bukan kerusakan. Hanya kerusakan yang boleh memerahkan run.
+class GagalKonten extends Error {}
+
 async function main() {
   log(`mulai ${KERING ? '(KERING, tanpa menulis ke Sanity)' : ''} model=${MODEL}`);
   const baris = [`## Putaran berita Saudi ${KERING ? '(kering)' : ''}`, ''];
@@ -115,7 +119,7 @@ async function main() {
     log(`menulis: [${k.sumber}] ${k.judul}`);
     try {
       const isi = await isiArtikel(k);
-      if (isi.kata < 150) throw new Error(`isi sumber terlalu tipis (${isi.kata} kata)`);
+      if (isi.kata < 150) throw new GagalKonten(`isi sumber terlalu tipis (${isi.kata} kata)`);
       const sumberTeks = `${k.judul}\nPublished ${k.tanggalTeks}\n${isi.teks}`;
 
       let naskah = await tulis(k, isi, p.sudut);
@@ -125,7 +129,7 @@ async function main() {
         naskah = await tulis(k, isi, p.sudut, cek.alasan);
         cek = periksaNaskah(naskah, sumberTeks);
       }
-      if (!cek.lolos) throw new Error(`naskah gagal pemeriksa: ${cek.alasan.join(' | ')}`);
+      if (!cek.lolos) throw new GagalKonten(`naskah gagal pemeriksa: ${cek.alasan.join(' | ')}`);
 
       const slug = await cms.slugBebas(slugify(naskah.judul));
       fs.mkdirSync(FOLDER, { recursive: true });
@@ -174,7 +178,7 @@ async function main() {
     } catch (e) {
       log(`  GAGAL: ${e.message}`);
       catat(k, 'gagal', e.message);
-      hasil.push({ k, galat: e.message });
+      hasil.push({ k, galat: e.message, konten: e instanceof GagalKonten });
     }
   }
 
@@ -193,9 +197,11 @@ async function main() {
 
   const berhasil = hasil.filter((h) => !h.galat).length;
   log(`selesai: ${berhasil} berhasil, ${hasil.length - berhasil} gagal`);
-  // Merah hanya bila ada pilihan tapi SEMUANYA gagal, supaya kerusakan
-  // (misalnya login gambar kedaluwarsa) terlihat di GitHub, bukan senyap.
-  return pilihan.length && !berhasil ? 2 : 0;
+  // Merah bila ada pilihan, tak satu pun berhasil, dan setidaknya satu gagal
+  // karena kerusakan (Claude, Sanity, jaringan), supaya kerusakan terlihat di
+  // GitHub, bukan senyap, tanpa memerahkan penolakan pengaman yang wajar.
+  const rusak = hasil.some((h) => h.galat && !h.konten);
+  return pilihan.length && !berhasil && rusak ? 2 : 0;
 }
 
 main().then((kode) => process.exit(kode)).catch((e) => {

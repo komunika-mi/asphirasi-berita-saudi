@@ -94,6 +94,36 @@ test('superlatif lolos hanya bila sumber memuat padanannya', () => {
   assert.ok(al.some((a) => a.includes('terbesar')));
 });
 
+test('"high" di sumber menjadi dasar sah untuk "tertinggi" (kasus harga minyak 14 Sep)', () => {
+  const minyak = 'Crude oil continues to extend its gains toward the $119.48 high, rising above $100.';
+  const n = naskahDasar();
+  n.body[0] = { t: 'p', x: n.body[0].x + ' Harga mendekati level tertinggi US$119,48.' };
+  const al = periksaNaskah(n, SUMBER.replace(/highest|record|largest|Average/gi, 'x') + ' ' + minyak).alasan;
+  assert.ok(!al.some((a) => a.includes('tertinggi')), al.join('; '));
+});
+
+test('desimal bertitik ditolak dengan pesan jelas, jam pukul 14.30 tidak', () => {
+  const sumber = SUMBER + ' Brent rose to $119.48 at 14.30 GMT.';
+  const n = naskahDasar();
+  n.body[0] = { t: 'p', x: n.body[0].x + ' Brent naik ke US$119.48 pada pukul 14.30 waktu setempat.' };
+  const al = periksaNaskah(n, sumber).alasan;
+  assert.ok(al.some((a) => a.includes('119.48 -> 119,48')), al.join('; '));
+  assert.ok(!al.some((a) => a.includes('14.30') || a.includes('angka tidak ada')), al.join('; '));
+});
+
+test('harga bertitik di sumber tidak menyumbang angka jam palsu', () => {
+  // "$2.23" tidak boleh membuat "23" dianggap punya dasar.
+  assert.deepEqual(angkaTanpaDasar('Harga naik 23 persen.', 'Brent rose $2.23 to $90.'), ['23']);
+  assert.deepEqual(angkaTanpaDasar('Pukul 14.30 kapal tiba.', 'The ship arrived at 2:30 pm.'), []);
+});
+
+test('pesan angka tanpa dasar menyertakan potongan kalimat', () => {
+  const n = naskahDasar();
+  n.body[0] = { t: 'p', x: n.body[0].x + ' Harga naik 23 persen dalam sepekan.' };
+  const al = periksaNaskah(n, SUMBER).alasan;
+  assert.ok(al.some((a) => a.includes('23 persen') || a.includes('naik 23')), al.join('; '));
+});
+
 test('kata "terutama", "terbaru", "terkait" tidak dianggap superlatif', () => {
   const n = naskahDasar();
   n.body[0] = { t: 'p', x: n.body[0].x + ' Terutama aturan terbaru yang terkait jemaah, terakhir diperbarui.' };

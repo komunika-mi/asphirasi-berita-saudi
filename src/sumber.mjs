@@ -61,6 +61,10 @@ const PENGAMBIL = {
       url: i.url.replace(/\?.*$/, ''),
       waktu: i.waktu,
       ringkas: i.ringkas,
+      // Halaman video/galeri/siaran langsung tidak punya teks untuk ditulis
+      // (terbukti 14 Sep 2026: "Heavy rain falls over the Kaaba" = video),
+      // tapi tetap berguna sebagai penanda isu yang ramai.
+      radar: /aljazeera\.com\/(?:video|program|gallery|podcasts?|liveblog)\//.test(i.url),
     }));
   },
 

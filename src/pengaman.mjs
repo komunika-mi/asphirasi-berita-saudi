@@ -49,6 +49,16 @@ export function nilaiSumber(teks) {
     nilai.push(dasar);
     if (m[2]) nilai.push(dasar * SKALA_EN[m[2].toLowerCase()]);
   }
+  // Jam: "14:30", "14.30 GMT", "2:30 pm". Tanpa ini "pukul 14.30" di naskah
+  // terpecah jadi 14 dan 30, sedangkan sumber hanya menyimpan desimal 14,3.
+  // Jam bertitik hanya diakui bila diikuti penanda waktu, supaya harga seperti
+  // "$2.23" tidak ikut menyumbang angka 23.
+  const pola_jam = /(?<![\d.,])(\d{1,2}):(\d{2})(?!\d)(\s*[ap]\.?m\.?)?|(?<![\d.,])(\d{1,2})\.(\d{2})(?=\s*(GMT|UTC|a\.m\.|p\.m\.|am\b|pm\b|local))/gi;
+  for (const m of teks.matchAll(pola_jam)) {
+    const jam = Number(m[1] ?? m[4]);
+    nilai.push(jam, Number(m[2] ?? m[5]));
+    if (/p/i.test(m[3] || m[6] || '') && jam < 12) nilai.push(jam + 12);
+  }
   // Sumber TIDAK ikut diurai dengan format Indonesia: "86,000" akan terbaca
   // 86 dan meloloskan naskah yang menulis "86" padahal sumbernya 86 ribu.
   return nilai;
@@ -63,6 +73,23 @@ export function angkaTanpaDasar(naskahTeks, sumberTeks) {
   )];
 }
 
+// Desimal gaya Inggris ("119.48") di naskah Indonesia terbaca 11.948 oleh
+// pembaca, dan oleh pengaman angka terpecah jadi "119" dan "48" yang tidak
+// ada di sumber sehingga pesan penolakannya menyesatkan. Jam ("pukul 14.30")
+// dikecualikan karena memang ditulis dengan titik.
+export function desimalTitik(teks) {
+  return [...teks.matchAll(/(?<![\d.,])(\d+\.\d{1,2})(?![\d.,])/g)]
+    .filter((m) => !/(?:pukul|jam)\s*$/i.test(teks.slice(Math.max(0, m.index - 8), m.index)))
+    .filter((m) => !/^\s*(?:WIB|WITA|WIT|GMT|waktu setempat)/i.test(teks.slice(m.index + m[0].length, m.index + m[0].length + 18)))
+    .map((m) => m[1]);
+}
+
+function konteks(teks, bentuk) {
+  const i = teks.indexOf(bentuk);
+  if (i < 0) return bentuk;
+  return `${bentuk} ("...${teks.slice(Math.max(0, i - 50), i + bentuk.length + 30).replace(/\s+/g, ' ')}...")`;
+}
+
 // ---------------------------------------------------------------------------
 // Klaim peringkat kuantitatif. Superlatif Indonesia hanya lolos bila sumber
 // Inggrisnya memuat padanan klaim yang sama. Daftar eksplisit, bukan ter\w+,
@@ -70,8 +97,9 @@ export function angkaTanpaDasar(naskahTeks, sumberTeks) {
 // ---------------------------------------------------------------------------
 const PERINGKAT = [
   [/\b(?:terbesar|paling besar)\b/i, /\b(?:largest|biggest|greatest)\b/i],
-  [/\b(?:tertinggi|paling tinggi)\b/i, /\b(?:highest|record|peak|tallest)\b/i],
-  [/\b(?:terendah|paling rendah)\b/i, /\b(?:lowest|record low)\b/i],
+  // "a seven-week high", "the $119.48 high" = dasar sah untuk "tertinggi".
+  [/\b(?:tertinggi|paling tinggi)\b/i, /\b(?:highest|record|peak|tallest|highs?)\b/i],
+  [/\b(?:terendah|paling rendah)\b/i, /\b(?:lowest|record low|lows?)\b/i],
   [/\b(?:terbanyak|paling banyak|mayoritas|kebanyakan|sebagian besar)\b/i, /\b(?:most|majority|largest number|highest number)\b/i],
   [/\b(?:terkecil|paling kecil)\b/i, /\b(?:smallest|least|fewest)\b/i],
   [/\b(?:tersering|paling sering|paling kerap)\b/i, /\b(?:most frequent|most common|most often)\b/i],
@@ -148,8 +176,12 @@ export function periksaNaskah(n, sumberTeks) {
   if (/https?:\/\/|<[a-z/!]/i.test(semua)) alasan.push('memuat tautan atau tag HTML');
   if (/(?<!Presiden\s)\bPrabowo\b/.test(semua)) alasan.push('menyebut "Prabowo" tanpa "Presiden"');
 
-  const tanpaDasar = angkaTanpaDasar(semua, sumberTeks);
-  if (tanpaDasar.length) alasan.push(`angka tidak ada di sumber: ${tanpaDasar.join(', ')}`);
+  const titik = desimalTitik(semua);
+  if (titik.length) {
+    alasan.push(`desimal ditulis dengan titik, format Indonesia memakai koma: ${titik.map((t) => `${t} -> ${t.replace('.', ',')}`).join(', ')}`);
+  }
+  const tanpaDasar = angkaTanpaDasar(titik.reduce((t, d) => t.split(d).join(d.replace('.', ',')), semua), sumberTeks);
+  if (tanpaDasar.length) alasan.push(`angka tidak ada di sumber, hapus atau ganti: ${tanpaDasar.map((a) => konteks(semua, a)).join('; ')}`);
 
   for (const [pola, bukti] of PERINGKAT) {
     const m = semua.match(pola);
