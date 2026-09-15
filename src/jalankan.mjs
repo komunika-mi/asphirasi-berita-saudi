@@ -13,7 +13,7 @@ import { buatSampul } from './foto.mjs';
 import { keBlok } from './portable.mjs';
 import * as cms from './sanity.mjs';
 import { MODEL } from './claude.mjs';
-import { log, akhiri, ringkasanLangkah, awalHariWIB, slugify, jumlahKata } from './util.mjs';
+import { log, akhiri, ringkasanLangkah, awalHariWIB, slugify, jumlahKata, kunciSumber } from './util.mjs';
 
 const arg = process.argv.slice(2);
 const KERING = arg.includes('--kering');
@@ -74,20 +74,32 @@ async function main() {
   for (const l of laporan) baris.push(`| ${l.sumber} | ${l.status} | ${l.jumlah ?? l.catatan} |`);
   log('sumber:', laporan.map((l) => `${l.sumber}=${l.status}${l.jumlah !== undefined ? `(${l.jumlah})` : ''}`).join(', '));
 
+  // Semua pembanding memakai kunciSumber, bukan URL persis: Arab News mengganti
+  // slug saat judulnya diperbarui, dan artikel 3001734 sempat ditulis dua kali
+  // (15 Sep 2026) karena URL lama dan barunya berbeda.
   const pernah = new Map();
-  for (const r of status.riwayat) pernah.set(r.url, [...(pernah.get(r.url) || []), r.putusan]);
-  const diDraft = await cms.urlSudahAda(kandidat.map((k) => k.url));
+  for (const r of status.riwayat) {
+    const kr = kunciSumber(r.url);
+    pernah.set(kr, [...(pernah.get(kr) || []), r.putusan]);
+  }
+  const terbaru = await cms.tulisanTerbaru(new Date(Date.now() - 7 * 86400e3).toISOString());
+  const diDraft = new Set(terbaru.filter((t) => t.sourceUrl).map((t) => kunciSumber(t.sourceUrl)));
+  const judulTerbaru = terbaru
+    .filter((t) => Date.now() - new Date(t._createdAt).getTime() < 48 * 3600e3)
+    .map((t) => t.title);
 
   const lihat = new Set();
   const penuh = [];
   const radar = [];
   for (const k of kandidat) {
     const kunci = normalJudul(k.judul);
-    if (lihat.has(kunci)) continue;
+    const ks = kunciSumber(k.url);
+    if (lihat.has(kunci) || lihat.has(ks)) continue;
     lihat.add(kunci);
+    lihat.add(ks);
     if (k.radar) { radar.push(k); continue; }
-    const riwayat = pernah.get(k.url) || [];
-    if (diDraft.has(k.url) || riwayat.includes('ditolak') || riwayat.includes('dibuat')) continue;
+    const riwayat = pernah.get(ks) || [];
+    if (diDraft.has(ks) || riwayat.includes('ditolak') || riwayat.includes('dibuat')) continue;
     if (riwayat.filter((p) => p === 'gagal').length >= 2) continue;
     penuh.push({ ...k, tanggalTeks: tanggalTeks(k.waktu) });
   }
@@ -100,7 +112,7 @@ async function main() {
 
   // Seleksi diminta menyiapkan cadangan: artikel yang ternyata isinya tipis
   // atau gagal pemeriksa tidak boleh menghabiskan jatah putaran.
-  const putusan = await seleksi(penuh, radar, jatah + 3);
+  const putusan = await seleksi(penuh, radar, jatah + 3, judulTerbaru);
   const catat = (k, p, alasan) => status.riwayat.push({ url: k.url, judul: k.judul.slice(0, 160), putusan: p, alasan: String(alasan || '').slice(0, 200), waktu: new Date().toISOString() });
   for (const t of putusan.tolak || []) if (penuh[t.id]) catat(penuh[t.id], 'ditolak', t.alasan);
   const pilihan = (putusan.pilih || [])

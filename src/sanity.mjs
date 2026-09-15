@@ -42,10 +42,13 @@ export async function mutasi(mutations) {
   });
 }
 
-export async function urlSudahAda(urls) {
-  if (!urls.length) return new Set();
-  const ada = await kueri('*[_type=="post" && sourceUrl in $urls].sourceUrl', { urls });
-  return new Set(ada);
+// Tulisan beberapa hari terakhir, termasuk draft dan tulisan editor sendiri,
+// untuk mencegah artikel sumber yang sama maupun peristiwa yang sama ditulis ulang.
+export async function tulisanTerbaru(isoAwal) {
+  return kueri(
+    '*[_type=="post" && _createdAt >= $awal && (defined(sourceUrl) || category._ref == "cat.saudi")]{title, sourceUrl, _createdAt}',
+    { awal: isoAwal },
+  );
 }
 
 export async function jumlahSejak(isoAwal) {

@@ -17,7 +17,7 @@ const FOKUS = [
   'perubahan kebijakan Saudi: visa, Nusuk, kuota, tarif, layanan Masjidil Haram dan Masjid Nabawi, akomodasi',
 ];
 
-export async function seleksi(kandidatPenuh, radar, jatah) {
+export async function seleksi(kandidatPenuh, radar, jatah, judulTerbaru = []) {
   const daftar = kandidatPenuh
     .map((k, i) => `[${i}] ${k.sumber} | ${k.waktu || '-'} | ${k.judul}${k.ringkas ? ` | ${k.ringkas.slice(0, 240)}` : ''}`)
     .join('\n');
@@ -39,6 +39,10 @@ export async function seleksi(kandidatPenuh, radar, jatah) {
     'yang isinya terlalu tipis untuk dianalisis.',
     'Konflik atau cuaca YANG mengganggu penerbangan, wilayah udara, atau keamanan perjalanan ke Saudi TIDAK ditolak.',
     '',
+    'TOLAK juga kandidat yang PERISTIWANYA sama dengan tulisan di daftar SUDAH DITULIS, walau dari artikel atau',
+    'sumber lain. Kecualikan hanya bila ada perkembangan baru yang substansial (angka korban berubah, kebijakan',
+    'resmi baru, dampak baru ke penerbangan atau jemaah), dan sebutkan perkembangan itu di "sudut".',
+    '',
     PENGAMAN,
     '',
     'Balas HANYA JSON: {"pilih":[{"id":0,"dampak":4,"viral":3,"sudut":"sudut tulisan untuk pembaca Indonesia, satu kalimat"}],',
@@ -56,6 +60,11 @@ export async function seleksi(kandidatPenuh, radar, jatah) {
     'RADAR (judul yang sedang diliput sumber lain, tidak bisa dipilih, hanya penanda isu ramai):',
     '<<<DATA>>>',
     radarTeks || '(kosong)',
+    '<<<AKHIR_DATA>>>',
+    '',
+    'SUDAH DITULIS 48 jam terakhir (jangan ditulis ulang peristiwanya):',
+    '<<<DATA>>>',
+    judulTerbaru.map((j) => `- ${j}`).join('\n') || '(kosong)',
     '<<<AKHIR_DATA>>>',
   ].join('\n');
 

@@ -86,6 +86,20 @@ export function awalHariWIB(sekarang = new Date()) {
   return new Date(wib.getTime() - 7 * 3600e3).toISOString();
 }
 
+// Identitas artikel sumber yang tahan perubahan slug: nomor artikel Arab News
+// ("...-3001734") dan kode berita SPA ("/en/N2675169"). Situs lain memakai path.
+export function kunciSumber(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    const path = u.pathname.replace(/\/+$/, '');
+    const nomor = path.match(/-(\d{6,})$/) || path.match(/\/(N\d{5,})$/i);
+    return nomor ? `${host}#${nomor[1]}` : `${host}${path}`;
+  } catch {
+    return url;
+  }
+}
+
 export function slugify(s, maks = 70) {
   let t = s
     .normalize('NFKD')
