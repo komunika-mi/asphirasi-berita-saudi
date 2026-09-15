@@ -27,10 +27,12 @@ $env:HIGGSFIELD_BIN = Join-Path $env:USERPROFILE '.higgsfield\bin\higgsfield.exe
 
 Set-Location $proyek
 Catat 'mulai'
-# Lewat cmd supaya stderr node digabung sebagai teks biasa. Pengalihan 2>&1 di
-# PowerShell 5.1 membungkus tiap baris stderr jadi ErrorRecord palsu.
-$keluaran = cmd /c "node src\sampul-laptop.mjs 2>&1" | Out-String
+# Keluaran node langsung DITAMBAHKAN ke berkas log baris demi baris lewat cmd.
+# Dulu ditampung lalu ditulis di akhir, sehingga putaran 15 Sep 2026 10.13 yang
+# terhenti di tengah jalan tidak meninggalkan jejak apa pun. Lewat cmd juga
+# supaya stderr node tetap teks biasa (2>&1 di PowerShell 5.1 membungkusnya
+# jadi ErrorRecord palsu).
+cmd /c "node src\sampul-laptop.mjs >> $log 2>&1"
 $kode = $LASTEXITCODE
-foreach ($b in ($keluaran -split "`r?`n")) { if ($b.Trim()) { Catat ('  ' + $b.Trim()) } }
 Catat "selesai, kode keluar $kode"
 exit $kode

@@ -29,7 +29,7 @@ export async function tanya(systemPrompt, userPrompt) {
         systemPrompt,
         allowedTools: [],
         permissionMode: 'bypassPermissions',
-        maxTurns: 4,
+        maxTurns: 8,
       },
     }),
   );
@@ -47,7 +47,7 @@ export async function lihatGambar(berkas, systemPrompt, userPrompt) {
         cwd: path.dirname(berkas),
         allowedTools: ['Read'],
         permissionMode: 'bypassPermissions',
-        maxTurns: 4,
+        maxTurns: 8,
       },
     }),
   );

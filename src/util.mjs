@@ -5,8 +5,19 @@ export const UA =
 
 export class Diblokir extends Error {}
 
+// Jam WIB di mana pun proses berjalan (runner GitHub memakai UTC, laptop WIB),
+// supaya log cloud dan log laptop bisa dibandingkan langsung.
 export function log(...a) {
-  console.log(new Date().toISOString().slice(11, 19), ...a);
+  console.log(new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 19), ...a);
+}
+
+// process.exit() saat soket fetch masih terbuka membuat Node di Windows crash
+// dengan 0xC0000409 walau pekerjaannya selesai (terjadi di Task Scheduler,
+// 14 Sep 2026). Kode keluar dipasang lalu proses dibiarkan selesai sendiri;
+// pengaman 15 detik hanya untuk pegangan yang tidak pernah menutup.
+export function akhiri(kode) {
+  process.exitCode = kode;
+  setTimeout(() => process.exit(kode), 15000).unref();
 }
 
 export function ringkasanLangkah(teks) {

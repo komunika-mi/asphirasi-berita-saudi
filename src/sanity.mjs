@@ -130,10 +130,17 @@ export async function daftarPesananSampul() {
   return kueri('*[_type=="pipelineSampul"] | order(dipesan asc)');
 }
 
-export async function catatGagalSampul(pesanan, alasan) {
-  return mutasi([
-    { patch: { id: pesanan._id, inc: { percobaan: 1 }, set: { alasanTerakhir: String(alasan).slice(0, 300) } } },
-  ]);
+// objekBaru dipakai putaran berikutnya: objek yang gagal berulang biasanya
+// memang sulit digambar tanpa tulisan (terbukti "Diplomasi Selat Hormuz",
+// 4 gambar ditolak pada 15 Sep 2026), jadi mengulang objek yang sama sia-sia.
+export async function catatGagalSampul(pesanan, alasan, objekBaru) {
+  const set = { alasanTerakhir: String(alasan).slice(0, 300) };
+  if (objekBaru) Object.assign(set, { objek: objekBaru, objekDiganti: true });
+  return mutasi([{ patch: { id: pesanan._id, inc: { percobaan: 1 }, set } }]);
+}
+
+export async function gantiObjekPesanan(idPesanan, objek) {
+  return mutasi([{ patch: { id: idPesanan, set: { objek, objekDiganti: true } } }]);
 }
 
 export async function selesaikanPesanan(idPesanan) {
@@ -142,7 +149,7 @@ export async function selesaikanPesanan(idPesanan) {
 
 export async function keadaanDraft(draftId) {
   const tayangId = draftId.replace(/^drafts\./, '');
-  return kueri('{"draft": *[_id == $d][0]{_id, "adaSampul": defined(coverImage.asset)}, "tayang": *[_id == $t][0]{_id}}', {
+  return kueri('{"draft": *[_id == $d][0]{_id, "adaSampul": defined(coverImage.asset), "judul": title, "ringkasan": excerpt}, "tayang": *[_id == $t][0]{_id}}', {
     d: draftId,
     t: tayangId,
   });

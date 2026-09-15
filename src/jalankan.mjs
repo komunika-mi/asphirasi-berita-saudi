@@ -13,7 +13,7 @@ import { buatSampul } from './foto.mjs';
 import { keBlok } from './portable.mjs';
 import * as cms from './sanity.mjs';
 import { MODEL } from './claude.mjs';
-import { log, ringkasanLangkah, awalHariWIB, slugify, jumlahKata } from './util.mjs';
+import { log, akhiri, ringkasanLangkah, awalHariWIB, slugify, jumlahKata } from './util.mjs';
 
 const arg = process.argv.slice(2);
 const KERING = arg.includes('--kering');
@@ -204,7 +204,7 @@ async function main() {
   return pilihan.length && !berhasil && rusak ? 2 : 0;
 }
 
-main().then((kode) => process.exit(kode)).catch((e) => {
+main().then(akhiri).catch((e) => {
   console.error(e);
-  process.exit(1);
+  akhiri(1);
 });

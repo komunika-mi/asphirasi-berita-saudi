@@ -1,6 +1,6 @@
 name: Berita Saudi ASPHIRASI
 
-# Tiap putaran menulis paling banyak 3 DRAFT ke Sanity (jatah harian 20).
+# Tiap putaran menulis paling banyak 5 DRAFT ke Sanity (jatah harian 20).
 # Tidak ada yang tayang otomatis: editor ASPHIRASI yang menekan Publish.
 #
 # Draft ditulis TANPA sampul. z_image hanya jalan lewat CLI Higgsfield yang
@@ -8,12 +8,16 @@ name: Berita Saudi ASPHIRASI
 # Cloud tidak memuat z_image), jadi putaran ini meninggalkan pesanan sampul
 # yang dikerjakan Task Scheduler laptop "ASPHIRASI - Sampul berita Saudi".
 #
-# Menit 23, bukan 0: menit 0 menit tersibuk GitHub Actions dan event schedule
-# paling sering dijatuhkan di sana (terukur di repo The Signal, Agu 2026).
-# 23 UTC = 06.23 WIB, 0-15 UTC = 07.23-22.23 WIB.
+# Menit 23 dan 53, bukan 0: menit 0 menit tersibuk GitHub Actions dan event
+# schedule paling sering dijatuhkan di sana (terukur di repo The Signal).
+# Dua slot per jam karena GitHub tetap menjatuhkan sebagian besar slot: malam
+# 14 Sep 2026 hanya 2 dari sekitar 13 slot per jam yang benar-benar jalan.
+# Slot tambahan tidak menambah draft di atas jatah harian; putaran yang tidak
+# menemukan kandidat baru berhenti sebelum menulis.
+# 23 UTC = 06.xx WIB, 0-15 UTC = 07.xx-22.xx WIB.
 on:
   schedule:
-    - cron: "23 23,0-15 * * *"
+    - cron: "23,53 23,0-15 * * *"
   workflow_dispatch:
     inputs:
       kering:
@@ -34,7 +38,7 @@ permissions:
 jobs:
   putaran:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +57,10 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           SANITY_API_WRITE_TOKEN: ${{ secrets.SANITY_API_WRITE_TOKEN }}
           SAMPUL: laptop
-          MENIT: "14"
+          MAKS_PER_PUTARAN: "5"
+          # 5 naskah x ~3 menit (termasuk tulis ulang) masuk di 20 menit; lewat
+          # batas, putaran berhenti memulai naskah baru dan tetap menyimpan.
+          MENIT: "20"
         run: |
           ARGS=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
