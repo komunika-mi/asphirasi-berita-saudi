@@ -1,6 +1,9 @@
 name: Berita Saudi ASPHIRASI
 
-# Tiap putaran menulis paling banyak 5 DRAFT ke Sanity (jatah harian 20).
+# Tiap putaran menulis DRAFT ke Sanity untuk dua jalur:
+# - Saudi: paling banyak 5 per putaran, jatah harian 20 (kategori Saudi Update).
+# - Regulasi (sejak 9 Okt 2026): paling banyak 2 per putaran, jatah harian 4,
+#   dari siaran pers Kemenhaj dan E-Media DPR (kategori Regulasi).
 # Tidak ada yang tayang otomatis: editor ASPHIRASI yang menekan Publish.
 #
 # Draft ditulis TANPA sampul. z_image hanya jalan lewat CLI Higgsfield yang
@@ -25,8 +28,11 @@ on:
         type: boolean
         default: true
       maks:
-        description: "Maksimal artikel putaran ini"
+        description: "Maksimal artikel per jalur putaran ini"
         default: "1"
+      jalur:
+        description: "Jalur: regulasi, saudi, atau keduanya dipisah koma"
+        default: "regulasi,saudi"
 
 concurrency:
   group: berita-saudi
@@ -34,6 +40,11 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  # Jalur untuk putaran terjadwal. Regulasi baru ikut setelah uji kering
+  # pertamanya diperiksa (9 Okt 2026).
+  JALUR_TERJADWAL: "saudi"
 
 jobs:
   putaran:
@@ -58,13 +69,26 @@ jobs:
           SANITY_API_WRITE_TOKEN: ${{ secrets.SANITY_API_WRITE_TOKEN }}
           SAMPUL: laptop
           MAKS_PER_PUTARAN: "5"
-          # 5 naskah x ~3 menit (termasuk tulis ulang) masuk di 20 menit; lewat
-          # batas, putaran berhenti memulai naskah baru dan tetap menyimpan.
-          MENIT: "20"
+          MAKS_REGULASI_PER_PUTARAN: "2"
+          MAKS_REGULASI_PER_HARI: "4"
+          # 5 + 2 naskah x ~3 menit (termasuk tulis ulang) masuk di 25 menit;
+          # lewat batas, putaran berhenti memulai naskah baru dan tetap menyimpan.
+          MENIT: "25"
         run: |
-          ARGS=""
+          ARGS="--jalur $JALUR_TERJADWAL"
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            [ "${{ inputs.kering }}" = "true" ] && ARGS="--kering"
-            ARGS="$ARGS --maks ${{ inputs.maks }}"
+            ARGS="--jalur ${{ inputs.jalur }} --maks ${{ inputs.maks }}"
+            [ "${{ inputs.kering }}" = "true" ] && ARGS="$ARGS --kering"
           fi
           node src/jalankan.mjs $ARGS
+
+      # Uji kering menyimpan naskahnya di keluaran/ supaya bisa dibaca sebelum
+      # jalur baru dinyalakan di jadwal.
+      - name: Simpan naskah uji kering
+        if: ${{ always() && github.event_name == 'workflow_dispatch' && inputs.kering }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: naskah-uji-kering
+          path: keluaran/
+          retention-days: 7
+          if-no-files-found: ignore

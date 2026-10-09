@@ -8,6 +8,8 @@ const TOKEN = process.env.SANITY_API_WRITE_TOKEN;
 // Semua draft buatan pipeline ini ber-_id "drafts.saudi.<slug>". Saat editor
 // menekan Publish di Studio, _id-nya menjadi "saudi.<slug>".
 export const AWALAN_ID = 'saudi.';
+// Jalur regulasi (9 Okt 2026): "drafts.regulasi.<slug>", kategori Regulasi.
+export const AWALAN_REGULASI = 'regulasi.';
 const ID_STATUS = 'pipeline.berita-saudi';
 const MAKS_RIWAYAT = 800;
 
@@ -51,10 +53,18 @@ export async function tulisanTerbaru(isoAwal) {
   );
 }
 
-export async function jumlahSejak(isoAwal) {
+// Untuk jalur regulasi: SEMUA tulisan, apa pun kategorinya. Editor menulis
+// sendiri dari siaran pers Kemenhaj dan E-Media DPR (26 artikel dalam 14 hari
+// per 9 Okt 2026), sering tanpa mengisi sourceUrl, jadi saringan di atas tidak
+// akan melihatnya dan peristiwa yang sama bisa ditulis dua kali.
+export async function semuaTulisanTerbaru(isoAwal) {
+  return kueri('*[_type=="post" && _createdAt >= $awal]{title, sourceUrl, _createdAt}', { awal: isoAwal });
+}
+
+export async function jumlahSejak(isoAwal, awalan = AWALAN_ID) {
   return kueri(
     'count(*[_type=="post" && (_id in path($draft) || _id in path($tayang)) && _createdAt >= $awal])',
-    { draft: `drafts.${AWALAN_ID}**`, tayang: `${AWALAN_ID}**`, awal: isoAwal },
+    { draft: `drafts.${awalan}**`, tayang: `${awalan}**`, awal: isoAwal },
   );
 }
 

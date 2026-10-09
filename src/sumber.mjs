@@ -52,7 +52,53 @@ async function radarGoogleNews(situs, namaSumber) {
   }));
 }
 
+// Jalur regulasi (ditambah 9 Okt 2026, permintaan klien: berita regulasi harus
+// lebih cepat terbit). Sumbernya resmi dan berbahasa Indonesia: siaran pers
+// Kementerian Haji dan Umrah dan berita parlemen E-Media DPR RI. Keduanya
+// memberi isi penuh langsung di daftarnya, jadi tidak ada pengambilan kedua.
+const KATA_HAJI = /\b(?:haji|umrah|umroh|jemaah|jamaah|bpkh|bpih|bipih|ppiu|pihk|kemenhaj)\b/i;
+
+function paragrafPolos(teks) {
+  return tanpaLebarNol(String(teks || ''))
+    .replace(/\r/g, '')
+    .split(/\n+/)
+    .map((s) => s.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
 const PENGAMBIL = {
+  async 'Kemenhaj RI'() {
+    const d = JSON.parse(await ambil('https://haji.go.id/api/news?lang=id&limit=30&page=1&status=published'));
+    return (d.data?.news || []).map((n) => {
+      const teks = paragrafPolos(n.content);
+      return {
+        jalur: 'regulasi',
+        sumber: 'Kemenhaj RI',
+        judul: String(n.title || '').trim(),
+        url: n.referenceUrl || `https://haji.go.id/berita/${n.slug}`,
+        waktu: n.publishDate ? new Date(n.publishDate).toISOString() : null,
+        ringkas: `Rubrik ${n.category || '-'}. ${teks.slice(0, 260)}`,
+        teksPenuh: teks,
+      };
+    });
+  },
+
+  async 'E-Media DPR RI'() {
+    const xml = await ambil('https://emedia.dpr.go.id/rss.xml');
+    return itemRSS(xml)
+      .filter((i) => KATA_HAJI.test(`${i.judul} ${i.ringkas}`))
+      .map((i) => ({
+        jalur: 'regulasi',
+        sumber: 'E-Media DPR RI',
+        judul: i.judul,
+        url: i.url,
+        waktu: i.waktu,
+        ringkas: i.ringkas.slice(0, 260),
+        teksPenuh: paragrafHtml(i.isiHtml).join('\n\n') || tanpaTag(i.isiHtml),
+      }));
+  },
+
   async 'Al Jazeera'() {
     const xml = await ambil('https://www.aljazeera.com/xml/rss/all.xml');
     return itemRSS(xml).map((i) => ({
@@ -166,7 +212,9 @@ function wadahIsi(html) {
 // seleksi hanya boleh memilih kandidat berisi penuh.
 export async function isiArtikel(k) {
   let teks = '';
-  if (k.sumber === 'Saudi Press Agency (SPA)') {
+  if (k.teksPenuh) {
+    teks = k.teksPenuh;
+  } else if (k.sumber === 'Saudi Press Agency (SPA)') {
     const d = dataNext(await ambil(k.url));
     const n = d.props?.pageProps?.newsDetails || {};
     // SPA menutup tiap berita dengan kode angka seperti "0048".

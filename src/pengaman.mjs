@@ -68,8 +68,42 @@ export function nilaiSumber(teks) {
   return nilai;
 }
 
-export function angkaTanpaDasar(naskahTeks, sumberTeks) {
-  const pool = nilaiSumber(sumberTeks);
+// Sumber berbahasa Indonesia (jalur regulasi, 9 Okt 2026): siaran pers Kemenhaj
+// dan berita E-Media DPR. Angkanya memakai format Indonesia, jadi diurai dengan
+// pengurai yang sama dengan naskah, ditambah bilangan yang ditulis dengan huruf
+// ("lima bulan", "dua puluh persen") karena naskah wajib menulisnya dengan digit.
+const SATUAN_ID = { satu: 1, dua: 2, tiga: 3, empat: 4, lima: 5, enam: 6, tujuh: 7, delapan: 8, sembilan: 9 };
+const KATA_ID = {
+  ...SATUAN_ID,
+  sepuluh: 10, sebelas: 11, seratus: 100, seribu: 1e3, sejuta: 1e6,
+  setengah: 0.5, separuh: 0.5, seperempat: 0.25, pertama: 1, kesepuluh: 10,
+  ...Object.fromEntries(Object.entries(SATUAN_ID).map(([k, v]) => [`ke${k}`, v])),
+};
+const PENGALI_ID = { puluh: 10, ratus: 100, ribu: 1e3, juta: 1e6, miliar: 1e9, triliun: 1e12 };
+
+export function nilaiSumberID(teks) {
+  const nilai = angkaIndonesia(teks).map((a) => a.nilai);
+  const t = teks.toLowerCase();
+  for (const m of t.matchAll(/[a-z]+/g)) {
+    if (KATA_ID[m[0]] !== undefined) nilai.push(KATA_ID[m[0]]);
+  }
+  const s = Object.keys(SATUAN_ID).join('|');
+  for (const m of t.matchAll(new RegExp(`\\b(${s})\\s+(belas|puluh|ratus|ribu|juta|miliar|triliun)(?:\\s+(${s}))?\\b`, 'g'))) {
+    const a = SATUAN_ID[m[1]];
+    if (m[2] === 'belas') nilai.push(10 + a);
+    else nilai.push(a * PENGALI_ID[m[2]]);
+    if (m[2] === 'puluh' && m[3]) nilai.push(a * 10 + SATUAN_ID[m[3]]);
+  }
+  for (const m of t.matchAll(/\b(sepuluh|sebelas|seratus|seribu)\s+(ribu|juta|miliar|triliun)\b/g)) {
+    nilai.push(KATA_ID[m[1]] * PENGALI_ID[m[2]]);
+  }
+  // "sepekan", "sebulan", "sekali": naskah menulisnya "1 pekan", "1 bulan", "1 kali".
+  if (/\bse(?:hari|pekan|minggu|bulan|tahun|kali|orang|buah|jam|menit|kloter|paket|tahap)\b/.test(t)) nilai.push(1);
+  return nilai;
+}
+
+export function angkaTanpaDasar(naskahTeks, sumberTeks, bahasa = 'en') {
+  const pool = bahasa === 'id' ? nilaiSumberID(sumberTeks) : nilaiSumber(sumberTeks);
   return [...new Set(
     angkaIndonesia(naskahTeks)
       .filter((a) => !pool.some((v) => sama(v, a.nilai)))
@@ -141,7 +175,10 @@ export function teksNaskah(n) {
   return [n.judul, n.ringkasan, ...(n.body || []).map((b) => b.x)].filter(Boolean).join('\n');
 }
 
-export function periksaNaskah(n, sumberTeks) {
+// bahasa: 'en' (bawaan, sumber portal Saudi) atau 'id' (jalur regulasi, sumber
+// resmi berbahasa Indonesia). Yang berbeda hanya cara membaca SUMBER: format
+// angka, padanan superlatif, dan kutipan narasumber yang boleh memuat sikap.
+export function periksaNaskah(n, sumberTeks, { bahasa = 'en' } = {}) {
   const alasan = [];
   const peringatan = [];
   const JENIS = new Set(['p', 'h2', 'h3', 'li', 'no', 'q']);
@@ -189,15 +226,20 @@ export function periksaNaskah(n, sumberTeks) {
   if (titik.length) {
     alasan.push(`desimal ditulis dengan titik, format Indonesia memakai koma: ${titik.map((t) => `${t} -> ${t.replace('.', ',')}`).join(', ')}`);
   }
-  const tanpaDasar = angkaTanpaDasar(titik.reduce((t, d) => t.split(d).join(d.replace('.', ',')), semua), sumberTeks);
+  const tanpaDasar = angkaTanpaDasar(titik.reduce((t, d) => t.split(d).join(d.replace('.', ',')), semua), sumberTeks, bahasa);
   if (tanpaDasar.length) alasan.push(`angka tidak ada di sumber, hapus atau ganti: ${tanpaDasar.map((a) => konteks(semua, a)).join('; ')}`);
 
   for (const [pola, bukti] of PERINGKAT) {
     const m = semua.match(pola);
-    if (m && !bukti.test(sumberTeks)) alasan.push(`klaim peringkat tanpa dasar di sumber: "${m[0]}"`);
+    // Sumber Indonesia: dasarnya kata yang sama di sumber, bukan padanan Inggris.
+    if (m && !(bahasa === 'id' ? pola : bukti).test(sumberTeks)) alasan.push(`klaim peringkat tanpa dasar di sumber: "${m[0]}"`);
   }
+  // Berita parlemen penuh kutipan seperti "pemerintah harus hadir". Sebagai
+  // kutipan beratribusi itu sah; yang dilarang adalah naskah sendiri yang
+  // bersikap. Karena itu, di jalur Indonesia isi tanda kutip tidak diperiksa.
+  const untukSikap = bahasa === 'id' ? semua.replace(/“[^”]*”|"[^"]*"/g, ' ') : semua;
   for (const pola of SIKAP) {
-    const m = semua.match(pola);
+    const m = untukSikap.match(pola);
     if (m) alasan.push(`mengambil sikap, bertentangan dengan opsi a: "${m[0]}"`);
   }
 

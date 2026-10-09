@@ -1,9 +1,19 @@
 # Berita Saudi untuk MEDIA ASPHIRASI
 
-Pipeline yang memantau portal berita Arab Saudi, memilih isu yang berdampak bagi
-travel haji-umrah dan jemaah Indonesia, lalu menulis **draft** berita-analisis
-berbahasa Indonesia ke CMS (Sanity) [mediaasphirasi.org](https://mediaasphirasi.org).
+Pipeline yang memantau portal berita Arab Saudi dan sumber regulasi resmi Indonesia,
+memilih isu yang berdampak bagi travel haji-umrah dan jemaah Indonesia, lalu menulis
+**draft** berita-analisis berbahasa Indonesia ke CMS (Sanity) [mediaasphirasi.org](https://mediaasphirasi.org).
 Tidak ada yang tayang otomatis: editor meninjau di Studio, lalu Publish atau Delete.
+
+| Jalur | Sumber | Kategori | Jatah |
+|---|---|---|---|
+| `saudi` | Al Jazeera, SPA, Saudi Updates, Arab News (+ radar Al Arabiya) | Saudi Update, `drafts.saudi.<slug>` | 5 per putaran, 20 per hari |
+| `regulasi` (sejak 9 Okt 2026) | siaran pers Kemenhaj (`haji.go.id/api/news`), E-Media DPR RI (`rss.xml`, disaring kata haji/umrah) | Regulasi, `drafts.regulasi.<slug>` | 2 per putaran, 4 per hari |
+
+Jalur regulasi dikerjakan lebih dulu tiap putaran. Seleksinya hanya memilih berita yang
+memuat aturan atau kebijakan, satu per peristiwa, dan menolak peristiwa yang sudah ditulis
+editor (semua tulisan 72 jam terakhir dibandingkan). Pengamannya membaca angka sumber
+dengan format Indonesia, dan kutipan narasumber yang bersikap tetap boleh.
 
 ## Dua bagian
 
@@ -29,8 +39,8 @@ terpasang, kecuali editor memasang foto sendiri.
 4. **Pengaman** (`src/pengaman.mjs`, diuji `npm run uji`): angka wajib ada di sumber
    (dibandingkan nilainya), superlatif wajib berdasar, tanpa sikap, tanpa em-dash,
    struktur wajib, subjek foto terlarang ditolak.
-5. **Draft** `drafts.saudi.<slug>` di kategori Saudi Update + dokumen pesanan
-   `pipeline.sampul.<slug>`, dalam satu transaksi.
+5. **Draft** `drafts.saudi.<slug>` (Saudi Update) atau `drafts.regulasi.<slug>` (Regulasi)
+   + dokumen pesanan `pipeline.sampul.<slug>`, dalam satu transaksi.
 
 Sampul: z_image dulu (3 percobaan), nano_banana cadangan. Tiap gambar diperiksa visual:
 tanpa tulisan, manusia, tempat ibadah/landmark, logo.
@@ -41,10 +51,14 @@ tanpa tulisan, manusia, tempat ibadah/landmark, logo.
 npm ci
 npm run uji
 node src/jalankan.mjs --kering --maks 1          # tanpa menulis ke Sanity, hasil di keluaran/
+node src/jalankan.mjs --kering --jalur regulasi  # hanya jalur regulasi
 SAMPUL=laptop node src/jalankan.mjs --maks 1     # seperti putaran cloud
 node src/sampul-laptop.mjs                       # kerjakan pesanan sampul
 ```
 
 Rahasia GitHub: `CLAUDE_CODE_OAUTH_TOKEN`, `SANITY_API_WRITE_TOKEN`.
-Batas: `MAKS_PER_PUTARAN` (3), `MAKS_PER_HARI` (20), `MENIT` (14), `MAKS_SAMPUL` (10).
+Batas: `MAKS_PER_PUTARAN` (3), `MAKS_PER_HARI` (20), `MAKS_REGULASI_PER_PUTARAN` (2),
+`MAKS_REGULASI_PER_HARI` (4), `JALUR` (regulasi,saudi), `MENIT` (14), `MAKS_SAMPUL` (10).
+Jalur putaran terjadwal diatur `JALUR_TERJADWAL` di workflow; uji kering lewat Actions
+(Run workflow) menyimpan naskahnya sebagai artefak `naskah-uji-kering`.
 Log laptop: `keluaran/log/sampul-YYYY-MM-DD.log`.
