@@ -42,9 +42,10 @@ permissions:
   contents: read
 
 env:
-  # Jalur untuk putaran terjadwal. Regulasi baru ikut setelah uji kering
-  # pertamanya diperiksa (9 Okt 2026).
-  JALUR_TERJADWAL: "saudi"
+  # Jalur untuk putaran terjadwal. Regulasi ikut sejak 9 Okt 2026 setelah uji
+  # kering pertamanya diperiksa (run 37894891992). Ganti ke "saudi" untuk
+  # mematikan jalur regulasi tanpa mengubah kode.
+  JALUR_TERJADWAL: "regulasi,saudi"
 
 jobs:
   putaran:

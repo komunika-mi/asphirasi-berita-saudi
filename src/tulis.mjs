@@ -232,6 +232,8 @@ const SISTEM_TULIS_REGULASI = [
   '  (2 juta, 1,5 miliar) hanya bila DATA menulisnya begitu; angka rinci ditulis persis seperti di DATA.',
   '- Jangan membuat angka turunan (selisih, persentase, pembulatan, total) yang tidak ada di DATA.',
   '- Superlatif kuantitatif (tertinggi, terbesar, mayoritas, rata-rata) hanya bila DATA menyatakannya.',
+  '- Hubungan sebab-akibat ("karena", "sehingga", "akibatnya") hanya bila DATA menyatakannya. Komposisi angka',
+  '  (misalnya porsi nilai manfaat) jangan ditafsirkan sebagai penyebab perubahan angka lain.',
   '- Sebut sumber di paragraf pembuka, misalnya "menurut siaran pers Kementerian Haji dan Umrah" atau',
   '  "dilansir E-Media DPR RI".',
   '- Dampak yang TIDAK disebut DATA ditulis sebagai hal yang perlu dicermati atau dipantau, bukan sebagai fakta.',
